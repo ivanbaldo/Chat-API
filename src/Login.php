@@ -60,7 +60,7 @@ class Login
       if (extension_loaded('curve25519') || extension_loaded('protobuf')) {
         if (file_exists(__DIR__ . DIRECTORY_SEPARATOR . Constants::DATA_FOLDER . DIRECTORY_SEPARATOR . "axolotl-" . $this->phoneNumber . ".db"))
         {
-          if (empty($this->parent->getAxolotlStore()->loadPreKeys()))
+          if (!count($this->parent->getAxolotlStore()->loadPreKeys()))
           {
             $this->parent->sendSetPreKeys();
             $this->parent->logFile('info', 'Sending prekeys to WA server');
