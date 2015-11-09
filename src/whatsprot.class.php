@@ -302,6 +302,9 @@ class WhatsProt
                 $this->processInboundData($stanza);
                 return true;
             }
+        } elseif ($s === false) {
+            throw new ConnectionException(
+                "socket_select() failed, reason: " . socket_strerror(socket_last_error()));
         }
         if(time() - $this->timeout > 60){
           $this->sendPing();
