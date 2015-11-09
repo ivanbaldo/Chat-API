@@ -280,21 +280,34 @@ class WhatsProt
     }
 
     /**
-     * Fetch a single message node
+     * Fetch a single message node from the network.
+     *
+     * @param float $timeout
+     *   Time to wait (in seconds) for receiving data, can be 0 (zero) to return immediately if
+     *   there is no data received or null to use the default (currently 2 seconds).
+     *
      * @return bool
+     *   true if data has been received, false otherwise.
      *
      * @throws Exception
      */
-    public function pollMessage()
+    public function pollMessage($timeout = null)
     {
         if (!$this->isConnected()) {
             throw new ConnectionException('Connection Closed!');
+        }
+        if ($timeout !== null && $timeout !== false) {
+            $timeoutSec = floor($timeout);
+            $timeoutUSec = floor(($timeout - $timeoutSec) * 1000000);
+        } else {
+            $timeoutSec = Constants::TIMEOUT_SEC;
+            $timeoutUSec = Constants::TIMEOUT_USEC;
         }
 
         $r = array($this->socket);
         $w = array();
         $e = array();
-        $s = socket_select($r, $w, $e, Constants::TIMEOUT_SEC, Constants::TIMEOUT_USEC);
+        $s = socket_select($r, $w, $e, $timeoutSec, $timeoutUSec);
 
         if ($s) {
             // Something to read
