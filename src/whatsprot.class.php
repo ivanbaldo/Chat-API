@@ -307,7 +307,7 @@ class WhatsProt
         $r = array($this->socket);
         $w = array();
         $e = array();
-        $s = socket_select($r, $w, $e, $timeoutSec, $timeoutUSec);
+        $s = @socket_select($r, $w, $e, $timeoutSec, $timeoutUSec);
 
         if ($s) {
             // Something to read
@@ -316,8 +316,12 @@ class WhatsProt
                 return true;
             }
         } elseif ($s === false) {
-            throw new ConnectionException(
-                "socket_select() failed, reason: " . socket_strerror(socket_last_error()));
+            $errorCode = socket_last_error();
+            //Skip "[4] Interrupted system call" which is common and not a true not retryable error:
+            if ($errorCode != 4) {
+                throw new ConnectionException(
+                    "socket_select() failed: [$errorCode] " . socket_strerror($errorCode));
+            }
         }
         if(time() - $this->timeout > 60){
           $this->sendPing();
