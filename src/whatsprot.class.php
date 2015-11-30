@@ -2497,7 +2497,7 @@ class WhatsProt
             array(
                 $this->phoneNumber,
                 $to,
-                $id,
+                $message_id,
                 $filetype,
                 $url,
                 $filename,
