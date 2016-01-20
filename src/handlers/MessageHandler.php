@@ -38,15 +38,22 @@ class MessageHandler implements Handler
             $this->processMessageNode($this->node);
         }
         if ($this->node->getAttribute('type') == 'media' && ($this->node->getChild('media') != null || $this->node->getChild('enc') != null)) {
-            if ($this->node->getChild('enc') != null && $this->node->getAttribute('participant') == null) { // for now only private messages
+          $file_data = "";
+	  if ($this->node->getChild('enc') != null && $this->node->getAttribute('participant') == null) { // for now only private messages
 
-          if (extension_loaded('curve25519') && extension_loaded('protobuf')) {
-              $dec_node = $this->processEncryptedNode($this->node);
-          }
+                if (extension_loaded('curve25519') && extension_loaded('protobuf')) {
+                    $dec_node = $this->processEncryptedNode($this->node);
+                }
                 if ($dec_node) {
                     $this->node = $dec_node;
+		    if($dec_node->getChild("media") != null)
+                    	$file_data = $dec_node->getChild("media")->getAttribute("file");
                 }
             }
+            else if (($this->node->getChild("enc") == null) && ($this->node->getChild('media')->getAttribute('url') != null)) {
+              $file_data = file_get_contents($this->node->getChild('media')->getAttribute('url'));
+            }
+
             if ($this->node->getChild('media') != null) {
                 if ($this->node->getChild('media')->getAttribute('type') == 'image') {
                     if ($this->node->getAttribute('participant') == null) {
@@ -60,7 +67,7 @@ class MessageHandler implements Handler
                   $this->node->getAttribute('notify'),
                   $this->node->getChild('media')->getAttribute('size'),
                   $this->node->getChild('media')->getAttribute('url'),
-                  $this->node->getChild('media')->getAttribute('file'),
+                  $file_data,
                   $this->node->getChild('media')->getAttribute('mimetype'),
                   $this->node->getChild('media')->getAttribute('filehash'),
                   $this->node->getChild('media')->getAttribute('width'),
@@ -163,7 +170,7 @@ class MessageHandler implements Handler
               ]);
                     }
                 } elseif ($this->node->getChild('media')->getAttribute('type') == 'audio') {
-                    $author = $this->node->getAttribute('participant');
+                    if ($this->node->getAttribute('participant') == null) {
                     $this->parent->eventManager()->fire('onGetAudio',
             [
               $this->phoneNumber,
@@ -178,9 +185,27 @@ class MessageHandler implements Handler
               $this->node->getChild('media')->getAttribute('mimetype'),
               $this->node->getChild('media')->getAttribute('filehash'),
               $this->node->getChild('media')->getAttribute('seconds'),
-              $this->node->getChild('media')->getAttribute('acodec'),
-              $author,
+              $this->node->getChild('media')->getAttribute('acodec')
             ]);
+          } else {
+            $this->parent->eventManager()->fire('onGetGroupAudio',
+            [
+              $this->phoneNumber,
+              $this->node->getAttribute('from'),
+              $this->node->getAttribute('participant'),
+              $this->node->getAttribute('id'),
+              $this->node->getAttribute('type'),
+              $this->node->getAttribute('t'),
+              $this->node->getAttribute('notify'),
+              $this->node->getChild('media')->getAttribute('size'),
+              $this->node->getChild('media')->getAttribute('url'),
+              $this->node->getChild('media')->getAttribute('file'),
+              $this->node->getChild('media')->getAttribute('mimetype'),
+              $this->node->getChild('media')->getAttribute('filehash'),
+              $this->node->getChild('media')->getAttribute('seconds'),
+              $this->node->getChild('media')->getAttribute('acodec')
+            ]);
+          }
                 } elseif ($this->node->getChild('media')->getAttribute('type') == 'vcard') {
                     if ($this->node->getChild('media')->hasChild('vcard')) {
                         $name = $this->node->getChild('media')->getChild('vcard')->getAttribute('name');
@@ -189,8 +214,8 @@ class MessageHandler implements Handler
                         $name = 'NO_NAME';
                         $data = $this->node->getChild('media')->getData();
                     }
-                    $author = $this->node->getAttribute('participant');
 
+                    if ($this->node->getAttribute('participant') == null) {
                     $this->parent->eventManager()->fire('onGetvCard',
             [
               $this->phoneNumber,
@@ -200,14 +225,26 @@ class MessageHandler implements Handler
               $this->node->getAttribute('t'),
               $this->node->getAttribute('notify'),
               $name,
-              $data,
-              $author,
+              $data
             ]);
+          } else  {
+            $this->parent->eventManager()->fire('onGetGroupvCard',
+            [
+              $this->phoneNumber,
+              $this->node->getAttribute('from'),
+              $this->node->getAttribute('participant'),
+              $this->node->getAttribute('id'),
+              $this->node->getAttribute('type'),
+              $this->node->getAttribute('t'),
+              $this->node->getAttribute('notify'),
+              $name,
+              $data
+            ]);
+          }
                 } elseif ($this->node->getChild('media')->getAttribute('type') == 'location') {
                     $url = $this->node->getChild('media')->getAttribute('url');
                     $name = $this->node->getChild('media')->getAttribute('name');
-                    $author = $this->node->getAttribute('participant');
-
+                    if ($this->node->getAttribute('participant') == null) {
                     $this->parent->eventManager()->fire('onGetLocation',
             [
               $this->phoneNumber,
@@ -220,9 +257,25 @@ class MessageHandler implements Handler
               $this->node->getChild('media')->getAttribute('longitude'),
               $this->node->getChild('media')->getAttribute('latitude'),
               $url,
-              $this->node->getChild('media')->getData(),
-              $author,
+              $this->node->getChild('media')->getData()
             ]);
+          } else {
+            $this->parent->eventManager()->fire('onGetGroupLocation',
+            [
+              $this->phoneNumber,
+              $this->node->getAttribute('from'),
+              $this->node->getAttribute('participant'),
+              $this->node->getAttribute('id'),
+              $this->node->getAttribute('type'),
+              $this->node->getAttribute('t'),
+              $this->node->getAttribute('notify'),
+              $name,
+              $this->node->getChild('media')->getAttribute('longitude'),
+              $this->node->getChild('media')->getAttribute('latitude'),
+              $url,
+              $this->node->getChild('media')->getData()
+            ]);
+          }
                 }
             }
 

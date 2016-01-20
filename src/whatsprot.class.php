@@ -491,6 +491,7 @@ class WhatsProt
                 'type' => 'retry',
                 't'    => $t,
             ], [$retryNode, $registrationNode], null);
+	    if(!isset($this->retryCounters[$id])) $this->retryCounters[$id] = 0;
             $this->retryCounters[$id]++;
         }
         $this->sendNode($node);
@@ -682,6 +683,26 @@ class WhatsProt
         $attr = [];
         $attr['platform'] = Constants::PLATFORM;
         $attr['version'] = Constants::WHATSAPP_VER;
+        $child = new ProtocolNode('config', $attr, null, '');
+        $node = new ProtocolNode('iq',
+            [
+                'id'    => $this->createIqId(),
+                'type'  => 'set',
+                'xmlns' => 'urn:xmpp:whatsapp:push',
+                'to'    => Constants::WHATSAPP_SERVER,
+            ], [$child], null);
+
+        $this->sendNode($node);
+    }
+
+    public function sendSetGCM($gcm = null)
+    {
+        if (is_null($gcm)) {
+          $gcm = getRandomGCM();
+        }
+        $attr = [];
+        $attr['platform'] = 'gcm';
+        $attr['id'] = $gcm;
         $child = new ProtocolNode('config', $attr, null, '');
         $node = new ProtocolNode('iq',
             [
@@ -1319,8 +1340,8 @@ class WhatsProt
         } else {
             $msgNode = new ProtocolNode('body', null, null, $plaintext);
         }
-
-        $id = $this->sendMessageNode($to, $msgNode, null);
+        $plaintextNode = new ProtocolNode('body', null, null, $plaintext);
+        $id = $this->sendMessageNode($to, $msgNode, null, $plaintextNode);
 
         if ($this->messageStore !== null) {
             $this->messageStore->saveMessage($this->phoneNumber, $to, $plaintext, $id, time());
@@ -2813,7 +2834,7 @@ class WhatsProt
      *
      * @return string Message ID.
      */
-    protected function sendMessageNode($to, $node, $id = null)
+    protected function sendMessageNode($to, $node, $id = null, $plaintextNode = null)
     {
         $msgId = ($id == null) ? $this->createMsgId() : $id;
         $to = $this->getJID($to);
@@ -2833,6 +2854,10 @@ class WhatsProt
         ], [$node], '');
 
         $this->sendNode($messageNode);
+
+        if ($node->getTag() == 'enc') {
+            $node = $plaintextNode;
+        }
 
         $this->logFile('info', '{type} message with id {id} sent to {to}', ['type' => $type, 'id' => $msgId, 'to' => ExtractNumber($to)]);
         $this->eventManager()->fire('onSendMessage',
@@ -3110,6 +3135,11 @@ class WhatsProt
     public function getPendingNodes()
     {
         return $this->pending_nodes;
+    }
+
+    public function unsetPendingNode($jid)
+    {
+        unset($this->pending_nodes[ExtractNumber($jid)]);
     }
 
     public function getNewMsgBind()
