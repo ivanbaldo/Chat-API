@@ -72,6 +72,7 @@ class WhatsProt
     protected $readReceipts = true;
     public $retryNodes = [];
     protected $axolotlStore;
+    protected $pingCounter = 1;
     public $writer;                  // An instance of the BinaryTreeNodeWriter class.
     public $reader;                  // An instance of the BinaryTreeNodeReader class.
     public $logger;
@@ -335,7 +336,19 @@ class WhatsProt
             }
         }
         if (time() - $this->timeout > 60) {
-            $this->sendPing();
+            if ($this->pingCounter >= 3)
+            {
+              $this->sendOfflineStatus();
+              $this->disconnect();
+              $this->iqCounter = 1;
+              $this->connect();
+              $this->loginWithPassword($this->password);
+              $this->pingCounter = 1;
+            }
+            else {
+              $this->sendPing();
+              $this->pingCounter++;
+            }
         }
 
         return false;
@@ -1513,7 +1526,7 @@ class WhatsProt
      */
     public function sendOfflineStatus()
     {
-        $messageNode = new ProtocolNode('presence', ['type' => 'inactive'], null, '');
+        $messageNode = new ProtocolNode('presence', ['type' => 'unavailable'], null, '');
         $this->sendNode($messageNode);
     }
 
@@ -1551,25 +1564,10 @@ class WhatsProt
         $presence['type'] = 'available';
         $node = new ProtocolNode('presence', $presence, null, '');
         $this->sendNode($node);
-    }
-
-    /**
-     * Send presence status.
-     *
-     * @param string $type The presence status.
-     */
-    public function sendPresence($type = 'active')
-    {
-        $node = new ProtocolNode('presence',
-            [
-                'type' => $type,
-            ], null, '');
-
-        $this->sendNode($node);
         $this->eventManager()->fire('onSendPresence',
             [
                 $this->phoneNumber,
-                $type,
+                $presence['type'],
                 $this->name,
             ]);
     }
@@ -1863,14 +1861,11 @@ class WhatsProt
      */
     public function createIqId()
     {
-        $iqId = $this->iqCounter;
-        $this->iqCounter++;
-        $id = dechex($iqId);
-        if (strlen($id) % 2 == 1) {
-            $id = str_pad($id, strlen($id) + 1, '0', STR_PAD_LEFT);
-        }
+      $iqId = $this->iqCounter;
+      $this->iqCounter++;
+      $id = dechex($iqId);
 
-        return $id;
+      return $id;
     }
 
     /**
